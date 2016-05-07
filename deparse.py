@@ -39,7 +39,7 @@ class DEOParser(object):
         return struct.unpack('<I', self.handle.read(4))[0]
 
     def get_var_str(self):
-        return self.get_str(self.get_int32())
+        return self.get_str(self.get_uint32())
 
     def get_var_len(self):
         len_a = self.get_uint8()
