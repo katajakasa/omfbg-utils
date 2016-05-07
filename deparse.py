@@ -1,34 +1,34 @@
 import argparse
-import os
-import sys
+import logging
 import struct
 import uuid
+import sys
 
 
 class DEParser(object):
-    def __init__(self, file):
-        self.file = file
+    def __init__(self, handle):
+        self.handle = handle
 
-    def get_str(self, len):
-        return self.file.read(len) if len > 0 else ''
+    def get_str(self, length):
+        return self.handle.read(length) if length > 0 else ''
 
     def get_int8(self):
-        return struct.unpack('<b', self.file.read(1))[0]
+        return struct.unpack('<b', self.handle.read(1))[0]
 
     def get_uint8(self):
-        return struct.unpack('<B', self.file.read(1))[0]
+        return struct.unpack('<B', self.handle.read(1))[0]
 
     def get_int16(self):
-        return struct.unpack('<h', self.file.read(2))[0]
+        return struct.unpack('<h', self.handle.read(2))[0]
 
     def get_uint16(self):
-        return struct.unpack('<H', self.file.read(2))[0]
+        return struct.unpack('<H', self.handle.read(2))[0]
 
     def get_int32(self):
-        return struct.unpack('<i', self.file.read(4))[0]
+        return struct.unpack('<i', self.handle.read(4))[0]
 
     def get_uint32(self):
-        return struct.unpack('<I', self.file.read(4))[0]
+        return struct.unpack('<I', self.handle.read(4))[0]
 
     def get_var_str(self):
         return self.get_str(self.get_int32())
@@ -37,7 +37,7 @@ class DEParser(object):
         return uuid.UUID(bytes=self.get_str(16))
 
     def get_pos(self):
-        return self.file.tell()
+        return self.handle.tell()
 
 
 class DEString(object):
@@ -50,8 +50,8 @@ class DEString(object):
 
 
 class DEHeader(DEParser):
-    def __init__(self, file):
-        super(DEHeader, self).__init__(file)
+    def __init__(self, handle):
+        super(DEHeader, self).__init__(handle)
         self.header_str = DEString(self.get_var_str(), self.get_uint8())
         self.unknown_a = self.get_uint32()
         self.object_dir_len = self.get_uint32()
@@ -85,8 +85,8 @@ class DEHeader(DEParser):
 
 
 class DEFile(object):
-    def __init__(self, file):
-        self.header = DEHeader(file)
+    def __init__(self, handle):
+        self.header = DEHeader(handle)
 
     def print_content(self):
         self.header.print_content()
@@ -100,8 +100,40 @@ if __name__ == "__main__":
         type=argparse.FileType('rb'),
         required=True,
         help='File to parse')
+    parser.add_argument(
+        '-l', '--log',
+        type=str,
+        required=False,
+        help='Logfile')
+    parser.add_argument(
+        '-d',
+        action='count',
+        help='Enable more verbose logging (-d for info, -dd for debug)')
 
     args = parser.parse_args()
+
+    # Set up logging
+    log_level = {
+        0: logging.WARNING,
+        1: logging.INFO,
+        2: logging.DEBUG,
+    }[args.d]
+    log_format = '[%(asctime)s] %(message)s'
+    log_datefmt = '%d.%m.%Y %I:%M:%S'
+    if args.log:
+        logging.basicConfig(filename=args.log,
+                            filemode='wb',
+                            level=log_level,
+                            format=log_format,
+                            datefmt=log_datefmt)
+    else:
+        logging.basicConfig(stream=sys.stderr,
+                            level=log_level,
+                            format=log_format,
+                            datefmt=log_datefmt)
+
+    log = logging.getLogger(__name__)
+    log.info(u'Parsing file "%s"', args.input.name)
 
     # Parse file
     de_file = DEFile(args.input)
